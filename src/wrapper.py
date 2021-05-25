@@ -14,6 +14,7 @@ import torch
 
 from torchvision import transforms
 from segmentron.models.model_zoo import get_segmentation_model
+from segmentron.utils.visualize import get_color_pallete
 from segmentron.config import cfg
 
 import cv2
@@ -32,7 +33,7 @@ BPP = {
   'mono8': 1
 }
 
-class GlassSegmentationWrapper:
+class SegmentationWrapper:
     """
     Wrapper for glass segmentation under ROS
     """
@@ -40,21 +41,36 @@ class GlassSegmentationWrapper:
         """
         Initializer
         """
-        # TOPIC_IMAGE = rospy.get_param("image_topic","/camera_b/color/image_raw")
+        # TOPIC_IMAGE = rospy.get_param("image_topic","/camera_b/color/image_raw")   
         # TOPIC_IMAGE = rospy.get_param("image_topics","/zed2/zed_node/rgb/image_rect_color")
-        # self.TOPICS_IMAGE = rospy.get_param("image_topics",["/zed2/zed_node/rgb/image_rect_color"])
-        self.TOPICS_IMAGE = rospy.get_param("image_topics",["/camera_h/color/image_raw"])
+        self.TOPICS_IMAGE = rospy.get_param("image_topics",["/zed2/zed_node/rgb/image_rect_color"])
+        # self.TOPICS_IMAGE = rospy.get_param("image_topics",["/camera_h/color/image_raw"])
         self.TOPIC_SEMANTIC = rospy.get_param("mask_topic","/segmentation")
         self.TOPIC_ORIGINAL = rospy.get_param("orig_topic","/orig_image")
-        self.MODEL_NAME = rospy.get_param("model_name","TransLab")
-        self.CKPT_NAME = rospy.get_param("ckpt_name","model.pth")
         self.CKPT_PATH = rospy.get_param("ckpt_path","/demo")
-        self.CONF_PATH = rospy.get_param("config_path","/configs/trans10K/translab.yaml")
-        self.LIST_OF_CLASSES = rospy.get_param("list_of_classes",["All_Optical", "Floor"])
-        self.ROOT_DIR = os.path.abspath(os.curdir) + "/src/glass_semantic_ros/src"
+        self.ROOT_DIR = os.path.abspath(os.curdir) + "/src/transformers_semantic_ros/src"
+
+        ##################################### Trans2Seg Configs ####################################
+        self.MODEL_NAME = rospy.get_param("model_name","Trans2Seg")
+        self.CKPT_NAME = rospy.get_param("ckpt_name","trans2seg_model.pth")
+        self.CONF_PATH = rospy.get_param("config_path","/configs/trans10kv2/trans2seg/trans2seg_medium_all_sber.yaml")
+        self.LIST_OF_CLASSES = rospy.get_param("list_of_classes",["Mirror", "Glass", "Floor Under Obstacles", "Floor", "Other Reflective Surfaces"])
+        ############################################################################################
+        
+        ##################################### TransLab Configs #####################################
+        # self.MODEL_NAME = rospy.get_param("model_name","TransLab")
+        # self.CKPT_NAME = rospy.get_param("ckpt_name","translab_model.pth")
+        # self.CONF_PATH = rospy.get_param("config_path","/configs/translab/translab_bs4.yaml")
+        # self.LIST_OF_CLASSES = rospy.get_param("list_of_classes",["All_Optical", "Floor"])
+        ############################################################################################
 
         self.model_path = self.ROOT_DIR+self.CKPT_PATH+"/"+self.CKPT_NAME
         self.config_file = self.ROOT_DIR+self.CONF_PATH
+
+        self.resize_image_to = (520,  520)
+        if self.MODEL_NAME == "Trans2Seg":
+            self.resize_image_to = (512,  512)
+
 
         cfg.update_from_file(self.config_file)
         cfg.TEST.TEST_MODEL_PATH = self.model_path
@@ -91,7 +107,6 @@ class GlassSegmentationWrapper:
             self.image_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+topic, Image, queue_size = 1)
             rospyLogInfoWrapper("Adding segmentation process for the topic: "+topic)
         # self.test_pub = rospy.Publisher("Test", Image, queue_size = 1)
-
     
     def onImageCB(self, msg, args):
         topic = str(args)
@@ -99,20 +114,37 @@ class GlassSegmentationWrapper:
         arr = self.imgmsgToCV2(msg)
         img = Img.fromarray(arr)
         size_ = img.size
-        img = img.resize((520,520), Img.BILINEAR)
+        
+        img = img.resize(self.resize_image_to, Img.BILINEAR)
         img_arr = np.array(img)
         self.topics_msgs[topic] = {"msg":msg, "size":size_, "img_arr": img_arr}
 
         tensor = self.input_transform(img_arr)
         tensor = torch.unsqueeze(tensor,0).to(self.device)
+        
+        # rospyLogInfoWrapper("Tensor size"+ str(tensor.shape))
         with torch.no_grad():
             # pass
-            output, output_boundary = self.model.evaluate(tensor)
-            result = output.argmax(1)[0].data.cpu().numpy().astype('uint8')*127
-            result = cv2.resize(result, size_, interpolation=cv2.INTER_NEAREST)
+            if self.MODEL_NAME == "TransLab":
+                output, output_boundary = self.model.evaluate(tensor)
+                result = output.argmax(1)[0].data.cpu().numpy().astype('uint8')*127
+                result = cv2.resize(result, size_, interpolation=cv2.INTER_NEAREST)
+                encode = "mono8"
+            elif self.MODEL_NAME == "Trans2Seg":
+                output = self.model(tensor)
+                mask = torch.argmax(output[0], 1)[0].cpu().data.numpy()
+                result = get_color_pallete(mask, cfg.DATASET.NAME)
+                result = result.convert("RGB")
+                result = result.resize(size_)
+                result = np.array(result)
+                encode = "rgb8"
+                # rospyLogInfoWrapper(str(result))
+
+            # result = output.argmax(1)[0].data.cpu().numpy().astype('uint8')*127
+            # result = cv2.resize(result, size_, interpolation=cv2.INTER_NEAREST)
             #TODO
             # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
-            semantic_msg = self.CV2ToImgmsg(result)
+            semantic_msg = self.CV2ToImgmsg(result, encoding=encode)
             # test_msg = Image()
             # self.test_pub.publish(semantic_msg)
             self.mask_publishers[topic].publish(semantic_msg)
@@ -154,6 +186,7 @@ class GlassSegmentationWrapper:
         msg = Image()
         msg.width = cv2img.shape[1]
         msg.height = cv2img.shape[0]
+        
         msg.encoding = encoding
         msg.step = BPP[encoding]*cv2img.shape[1]
         msg.data = np.ascontiguousarray(cv2img).tobytes()
