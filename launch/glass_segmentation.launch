@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<launch>
+    <arg name="mask_topic"              default="/segmentation">
+    <arg name="orig_topic"              default="/orig_image">
+    <arg name="model_name"              default="Trans2Seg">
+    <arg name="ckpt_name"               default="floor_optical">
+    <arg name="ckpt_path"               default="/demo">
+    <!-- <arg name="list_of_classes"         default="[All_Optical, Floor]">
+    <arg name="image_topics"            default="[/zed2/zed_node/rgb/image_rect_color]"> -->
+    
+    <node pkg="transformers_semantic_ros" type="server_node" name="transformers_semantic_node" output="screen" clear_params="true">
+        <param name="mask_topic"            value="$(arg mask_topic)"/>
+        <param name="orig_topic"            value="$(arg orig_topic)"/>
+        <param name="model_name"            value="$(arg model_name)"/>
+        <param name="ckpt_name"             value="$(arg ckpt_name)"/>
+        <param name="ckpt_path"             value="$(arg ckpt_path)"/>
+        <param name="list_of_classes"       value="$(arg list_of_classes)"/>
+        <param name="image_topics"          value="$(arg image_topics)"/>
+        <!-- <rosparam param="list_of_classes" subst_value="True">$(arg list_of_classes)</rosparam>
+        <rosparam param="image_topics" subst_value="True">$(arg image_topics)</rosparam> -->
+    </node>
+</launch>

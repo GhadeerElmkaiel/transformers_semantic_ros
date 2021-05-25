@@ -1,0 +1,9 @@
+requests
+tqdm
+numpy
+torchvision
+IPython
+scipy
+cv2
+thop
+tabulate

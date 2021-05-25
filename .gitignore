@@ -1,0 +1,7 @@
+src/build
+src/results
+src/result
+src/segmentron.egg-info
+src/test_images
+src/LICENSE
+*.pth
