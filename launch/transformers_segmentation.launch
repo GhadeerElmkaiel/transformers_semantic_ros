@@ -21,7 +21,7 @@
     <arg name="depth_topics"            default="[/camera_h/aligned_depth_to_color/image_raw]"/> 
     <arg name="root_dir"                default="$(dirname)/../src"/>
     
-    <node pkg="transformers_semantic_ros" type="transformers_semantic_node" name="transformers_semantic_node" output="screen" clear_params="true" cwd="node">
+    <node pkg="transformers_semantic_ros" type="transformers_semantic_node" name="transformers_semantic_node" output="screen" clear_params="true">
         <param name="mask_topic"            value="$(arg mask_topic)"/>
         <param name="orig_topic"            value="$(arg orig_topic)"/>
         <param name="model_name"            value="$(arg model_name)"/>

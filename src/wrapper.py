@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import os
 import sys
+import time
 import rospy
 import message_filters
 
@@ -199,6 +200,10 @@ class SegmentationWrapper:
             # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
             semantic_msg = self.CV2ToImgmsg(result, encoding=encode)
 
+            stamp = rospy.Time.from_sec(time.time())
+            semantic_msg.header.stamp = stamp
+            rgb_msg.header.stamp = stamp
+            depth_msg.header.stamp = stamp
             self.mask_publishers[topic].publish(semantic_msg)
             self.image_publishers[topic].publish(rgb_msg)
             self.depth_publishers[topic].publish(depth_msg)

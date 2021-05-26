@@ -5,3 +5,4 @@ src/segmentron.egg-info
 src/test_images
 src/LICENSE
 *.pth
+*/__pycache__
