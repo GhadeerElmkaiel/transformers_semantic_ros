@@ -19,6 +19,13 @@ pip install -r requirments.txt
 cd src/
 python3 setup.py develop --user
 ```
+  
+- Build the package
+```bash
+cd ../../..
+catkin build transformers_segmentation_ros
+source devel/setup.bash
+```
 
 ## Pretrained Models:
 Before using the package it is necessary to download a pretrained model for the neural network you want to use (Different models for different neural network structures).  
@@ -29,13 +36,14 @@ Multiple pretrained models can be found on [google drive](https://drive.google.c
  
 
 ## run
-to run the segmentation, currently you need to run the node using rosrun
+to run the segmentation, it is recommended to use the launch file
 ```bash
 rosrun transformers_semantic_ros transformers_semantic_node
 ```
 
 ## TODO
 - [x] Add the ability of using multiple models
+- [x] Add the ability of using Synchronized Depth image
 - [ ] Add sepatrate function for inference so it does inference for all topics at once
 - [ ] Change the .py files to .pyx
-- [ ] complete the launch file
+- [X] complete the launch file

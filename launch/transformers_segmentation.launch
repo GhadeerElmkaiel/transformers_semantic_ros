@@ -1,22 +1,37 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <launch>
-    <arg name="mask_topic"              default="/segmentation">
-    <arg name="orig_topic"              default="/orig_image">
-    <arg name="model_name"              default="Trans2Seg">
-    <arg name="ckpt_name"               default="trans2seg_model.pth">
-    <arg name="ckpt_path"               default="/demo">
-    <!-- <arg name="list_of_classes"         default="[All_Optical, Floor]">
-    <arg name="image_topics"            default="[/zed2/zed_node/rgb/image_rect_color]"> -->
+    <arg name="mask_topic"              default="/segmentation"/>
+    <arg name="orig_topic"              default="/orig_image"/>
+    <arg name="use_depth"               default="True"/>
+
+    <!-- For Trans2Seg model (Transformers) -->
+    <arg name="model_name"              default="Trans2Seg"/>
+    <arg name="ckpt_name"               default="trans2seg_model.pth"/>
+    <arg name="ckpt_path"               default="/demo"/>
+    <arg name="config_path"             default="/configs/Trans2Seg/trans2seg_medium_all_sber.yaml"/>
+    <arg name="list_of_classes"         default='["Mirror", "Glass", "Floor Under Obstacles", "Floor", "Other Reflective Surfaces"]'/>
+    <!-- For TransLab -->
+    <!-- <arg name="model_name"              default="TransLab"/>
+    <arg name="ckpt_name"               default="translab_model.pth"/>
+    <arg name="config_path"             default="/configs/TransLab/translab_bs4.yaml.yaml"/> 
+    <arg name="list_of_classes"         default="[All_Optical, Floor]"/> -->
+    <!--______________-->
+
+    <arg name="image_topics"            default="[/camera_h/color/image_raw]"/>
+    <arg name="depth_topics"            default="[/camera_h/aligned_depth_to_color/image_raw]"/> 
+    <arg name="root_dir"                default="$(dirname)/../src"/>
     
-    <node pkg="transformers_semantic_ros" type="server_node" name="transformers_semantic_node" output="screen" clear_params="true">
+    <node pkg="transformers_semantic_ros" type="transformers_semantic_node" name="transformers_semantic_node" output="screen" clear_params="true" cwd="node">
         <param name="mask_topic"            value="$(arg mask_topic)"/>
         <param name="orig_topic"            value="$(arg orig_topic)"/>
         <param name="model_name"            value="$(arg model_name)"/>
         <param name="ckpt_name"             value="$(arg ckpt_name)"/>
         <param name="ckpt_path"             value="$(arg ckpt_path)"/>
-        <param name="list_of_classes"       value="$(arg list_of_classes)"/>
-        <param name="image_topics"          value="$(arg image_topics)"/>
-        <!-- <rosparam param="list_of_classes" subst_value="True">$(arg list_of_classes)</rosparam>
-        <rosparam param="image_topics" subst_value="True">$(arg image_topics)</rosparam> -->
+        <param name="config_path"             value="$(arg config_path)"/>
+        <param name="use_depth"             value="$(arg use_depth)"/>
+        <param name="root_dir"                value="$(arg root_dir)"/>
+        <rosparam param="list_of_classes" subst_value="True">$(arg list_of_classes)</rosparam>
+        <rosparam param="image_topics" subst_value="True">$(arg image_topics)</rosparam>
+        <rosparam param="depth_topics" subst_value="True">$(arg depth_topics)</rosparam>
     </node>
 </launch>

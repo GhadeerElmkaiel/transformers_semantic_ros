@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import sys
 import rospy
+import message_filters
 
 cur_path = os.path.abspath(os.path.dirname(__file__))
 root_path = os.path.split(cur_path)[0]
@@ -41,26 +42,29 @@ class SegmentationWrapper:
         """
         Initializer
         """
-        # TOPIC_IMAGE = rospy.get_param("image_topic","/camera_b/color/image_raw")   
-        # TOPIC_IMAGE = rospy.get_param("image_topics","/zed2/zed_node/rgb/image_rect_color")
-        self.TOPICS_IMAGE = rospy.get_param("image_topics",["/zed2/zed_node/rgb/image_rect_color"])
-        # self.TOPICS_IMAGE = rospy.get_param("image_topics",["/camera_h/color/image_raw"])
-        self.TOPIC_SEMANTIC = rospy.get_param("mask_topic","/segmentation")
-        self.TOPIC_ORIGINAL = rospy.get_param("orig_topic","/orig_image")
-        self.CKPT_PATH = rospy.get_param("ckpt_path","/demo")
-        self.ROOT_DIR = os.path.abspath(os.curdir) + "/src/transformers_semantic_ros/src"
+        # self.TOPICS_IMAGE = rospy.get_param("~image_topics",["/zed2/zed_node/rgb/image_rect_color"])
+        # self.TOPICS_DEPTH = rospy.get_param("~depth_topics",["/zed2/zed_node/rgb/image_rect_color"])
+        self.TOPICS_IMAGE = rospy.get_param("~image_topics",["/camera_h/color/image_raw"])
+        self.TOPICS_DEPTH = rospy.get_param("~depth_topics",["/camera_h/aligned_depth_to_color/image_raw"])
+        self.TOPIC_SEMANTIC = rospy.get_param("~mask_topic","/segmentation")
+        self.TOPIC_ORIGINAL = rospy.get_param("~orig_topic","/orig_image")
+        self.ROOT_DIR = rospy.get_param("~root_dir", os.path.abspath(os.curdir) + "/src/transformers_semantic_ros/src")
+        self.USE_DEPTH = rospy.get_param("~use_depth",True)                          # To choose whether to synchronize depth with the mask
+
+        self.CKPT_PATH = rospy.get_param("~ckpt_path","/demo")
+        # self.ROOT_DIR = os.path.abspath(os.curdir)
 
         ##################################### Trans2Seg Configs ####################################
-        self.MODEL_NAME = rospy.get_param("model_name","Trans2Seg")
-        self.CKPT_NAME = rospy.get_param("ckpt_name","trans2seg_model.pth")
-        self.CONF_PATH = rospy.get_param("config_path","/configs/trans10kv2/trans2seg/trans2seg_medium_all_sber.yaml")
-        self.LIST_OF_CLASSES = rospy.get_param("list_of_classes",["Mirror", "Glass", "Floor Under Obstacles", "Floor", "Other Reflective Surfaces"])
+        self.MODEL_NAME = rospy.get_param("~model_name","Trans2Seg")
+        self.CKPT_NAME = rospy.get_param("~ckpt_name","trans2seg_model.pth")
+        self.CONF_PATH = rospy.get_param("~config_path","/configs/Trans2Seg/trans2seg_medium_all_sber.yaml")
+        self.LIST_OF_CLASSES = rospy.get_param("~list_of_classes",["Mirror", "Glass", "Floor Under Obstacles", "Floor", "Other Reflective Surfaces"])
         ############################################################################################
         
         ##################################### TransLab Configs #####################################
         # self.MODEL_NAME = rospy.get_param("model_name","TransLab")
         # self.CKPT_NAME = rospy.get_param("ckpt_name","translab_model.pth")
-        # self.CONF_PATH = rospy.get_param("config_path","/configs/translab/translab_bs4.yaml")
+        # self.CONF_PATH = rospy.get_param("config_path","/configs/TransLab/translab_bs4.yaml")
         # self.LIST_OF_CLASSES = rospy.get_param("list_of_classes",["All_Optical", "Floor"])
         ############################################################################################
 
@@ -80,8 +84,11 @@ class SegmentationWrapper:
 
         self.topics_msgs = {}
         self.image_subscribers = {}
+        self.depth_subscribers = {}
         self.mask_publishers = {}
         self.image_publishers = {}
+        self.depth_publishers = {}
+        self.sync_img_dpth_subscribers = {}
         if torch.cuda.is_available():  
             dev = "cuda:0" 
         else:  
@@ -100,12 +107,24 @@ class SegmentationWrapper:
         self.model.to(self.device)
         self.model.eval()
 
-        for topic in self.TOPICS_IMAGE:
-            self.topics_msgs[topic] = None
-            self.image_subscribers[topic] = rospy.Subscriber(topic, Image, self.onImageCB, callback_args=(topic), queue_size = 1)
-            self.mask_publishers[topic] = rospy.Publisher(self.TOPIC_SEMANTIC+topic, Image, queue_size = 1)
-            self.image_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+topic, Image, queue_size = 1)
-            rospyLogInfoWrapper("Adding segmentation process for the topic: "+topic)
+        if self.USE_DEPTH:                      # To synchronize the depth with the RGB image for further use
+            for i, topic in enumerate(self.TOPICS_IMAGE):
+                self.topics_msgs[topic] = None
+                self.image_subscribers[topic] = message_filters.Subscriber(topic, Image)
+                self.depth_subscribers[topic] = message_filters.Subscriber(self.TOPICS_DEPTH[i], Image)
+                self.sync_img_dpth_subscribers[topic] =  message_filters.TimeSynchronizer([self.image_subscribers[topic], self.depth_subscribers[topic]], 1)
+                self.sync_img_dpth_subscribers[topic].registerCallback(self.onImageSyncCB, topic, )
+                self.mask_publishers[topic] = rospy.Publisher(self.TOPIC_SEMANTIC+topic, Image, queue_size = 1)
+                self.image_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+topic, Image, queue_size = 1)
+                self.depth_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+self.TOPICS_DEPTH[i], Image, queue_size = 1)
+                rospyLogInfoWrapper("Adding Synchronized segmentation process for the topic: "+topic)
+        else:
+            for topic in self.TOPICS_IMAGE:
+                self.topics_msgs[topic] = None
+                self.image_subscribers[topic] = rospy.Subscriber(topic, Image, self.onImageCB, callback_args=(topic), queue_size = 1)
+                self.mask_publishers[topic] = rospy.Publisher(self.TOPIC_SEMANTIC+topic, Image, queue_size = 1)
+                self.image_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+topic, Image, queue_size = 1)
+                rospyLogInfoWrapper("Adding segmentation process for the topic: "+topic)
         # self.test_pub = rospy.Publisher("Test", Image, queue_size = 1)
     
     def onImageCB(self, msg, args):
@@ -122,7 +141,6 @@ class SegmentationWrapper:
         tensor = self.input_transform(img_arr)
         tensor = torch.unsqueeze(tensor,0).to(self.device)
         
-        # rospyLogInfoWrapper("Tensor size"+ str(tensor.shape))
         with torch.no_grad():
             # pass
             if self.MODEL_NAME == "TransLab":
@@ -138,17 +156,52 @@ class SegmentationWrapper:
                 result = result.resize(size_)
                 result = np.array(result)
                 encode = "rgb8"
-                # rospyLogInfoWrapper(str(result))
 
-            # result = output.argmax(1)[0].data.cpu().numpy().astype('uint8')*127
-            # result = cv2.resize(result, size_, interpolation=cv2.INTER_NEAREST)
             #TODO
             # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
             semantic_msg = self.CV2ToImgmsg(result, encoding=encode)
-            # test_msg = Image()
-            # self.test_pub.publish(semantic_msg)
+
             self.mask_publishers[topic].publish(semantic_msg)
             self.image_publishers[topic].publish(msg)
+
+
+    def onImageSyncCB(self, rgb_msg, depth_msg, args):
+        topic = str(args)
+        rospyLogDebugWrapper("Recived new Image, topic: "+topic)
+        arr = self.imgmsgToCV2(rgb_msg)
+        img = Img.fromarray(arr)
+        size_ = img.size
+        
+        img = img.resize(self.resize_image_to, Img.BILINEAR)
+        img_arr = np.array(img)
+        self.topics_msgs[topic] = {"msg":rgb_msg, "size":size_, "img_arr": img_arr}
+
+        tensor = self.input_transform(img_arr)
+        tensor = torch.unsqueeze(tensor,0).to(self.device)
+        
+        with torch.no_grad():
+            # pass
+            if self.MODEL_NAME == "TransLab":
+                output, output_boundary = self.model.evaluate(tensor)
+                result = output.argmax(1)[0].data.cpu().numpy().astype('uint8')*127
+                result = cv2.resize(result, size_, interpolation=cv2.INTER_NEAREST)
+                encode = "mono8"
+            elif self.MODEL_NAME == "Trans2Seg":
+                output = self.model(tensor)
+                mask = torch.argmax(output[0], 1)[0].cpu().data.numpy()
+                result = get_color_pallete(mask, cfg.DATASET.NAME)
+                result = result.convert("RGB")
+                result = result.resize(size_)
+                result = np.array(result)
+                encode = "rgb8"
+
+            #TODO
+            # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
+            semantic_msg = self.CV2ToImgmsg(result, encoding=encode)
+
+            self.mask_publishers[topic].publish(semantic_msg)
+            self.image_publishers[topic].publish(rgb_msg)
+            self.depth_publishers[topic].publish(depth_msg)
 
     def imgmsgToCV2(self, data, desired_encoding="passthrough", flip_channels=False):
         """
