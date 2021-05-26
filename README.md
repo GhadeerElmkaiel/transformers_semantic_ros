@@ -38,7 +38,7 @@ Multiple pretrained models can be found on [google drive](https://drive.google.c
 ## run
 to run the segmentation, it is recommended to use the launch file
 ```bash
-roslaunc transformers_semantic_ros transformers_segmentation.launch
+roslaunch transformers_semantic_ros transformers_segmentation.launch
 ```
 
 ## TODO
