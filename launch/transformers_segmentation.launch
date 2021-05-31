@@ -27,9 +27,9 @@
         <param name="model_name"            value="$(arg model_name)"/>
         <param name="ckpt_name"             value="$(arg ckpt_name)"/>
         <param name="ckpt_path"             value="$(arg ckpt_path)"/>
-        <param name="config_path"             value="$(arg config_path)"/>
+        <param name="config_path"           value="$(arg config_path)"/>
         <param name="use_depth"             value="$(arg use_depth)"/>
-        <param name="root_dir"                value="$(arg root_dir)"/>
+        <param name="root_dir"              value="$(arg root_dir)"/>
         <rosparam param="list_of_classes" subst_value="True">$(arg list_of_classes)</rosparam>
         <rosparam param="image_topics" subst_value="True">$(arg image_topics)</rosparam>
         <rosparam param="depth_topics" subst_value="True">$(arg depth_topics)</rosparam>

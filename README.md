@@ -23,7 +23,7 @@ python3 setup.py develop --user
 - Build the package
 ```bash
 cd ../../..
-catkin build transformers_segmentation_ros
+catkin build transformers_semantic_ros
 source devel/setup.bash
 ```
 

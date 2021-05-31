@@ -6,3 +6,5 @@ src/test_images
 src/LICENSE
 *.pth
 */__pycache__
+*/__pycache__*
+*.pyc

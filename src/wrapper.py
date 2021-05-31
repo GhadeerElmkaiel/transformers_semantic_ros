@@ -86,10 +86,15 @@ class SegmentationWrapper:
         self.topics_msgs = {}
         self.image_subscribers = {}
         self.depth_subscribers = {}
+        
+
         self.mask_publishers = {}
         self.image_publishers = {}
         self.depth_publishers = {}
+
         self.sync_img_dpth_subscribers = {}
+
+
         if torch.cuda.is_available():  
             dev = "cuda:0" 
         else:  
@@ -107,6 +112,7 @@ class SegmentationWrapper:
             pass
         self.model.to(self.device)
         self.model.eval()
+        self.softmax_layer = torch.nn.Softmax(dim=0)
 
         if self.USE_DEPTH:                      # To synchronize the depth with the RGB image for further use
             for i, topic in enumerate(self.TOPICS_IMAGE):
@@ -114,11 +120,14 @@ class SegmentationWrapper:
                 self.image_subscribers[topic] = message_filters.Subscriber(topic, Image)
                 self.depth_subscribers[topic] = message_filters.Subscriber(self.TOPICS_DEPTH[i], Image)
                 self.sync_img_dpth_subscribers[topic] =  message_filters.TimeSynchronizer([self.image_subscribers[topic], self.depth_subscribers[topic]], 1)
-                self.sync_img_dpth_subscribers[topic].registerCallback(self.onImageSyncCB, topic, )
+                # self.sync_img_dpth_subscribers[topic].registerCallback(self.onImageSyncCB, topic, )
+                self.sync_img_dpth_subscribers[topic].registerCallback(self.testCB, topic, )
                 self.mask_publishers[topic] = rospy.Publisher(self.TOPIC_SEMANTIC+topic, Image, queue_size = 1)
                 self.image_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+topic, Image, queue_size = 1)
                 self.depth_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+self.TOPICS_DEPTH[i], Image, queue_size = 1)
                 rospyLogInfoWrapper("Adding Synchronized segmentation process for the topic: "+topic)
+
+
         else:
             for topic in self.TOPICS_IMAGE:
                 self.topics_msgs[topic] = None
@@ -126,7 +135,10 @@ class SegmentationWrapper:
                 self.mask_publishers[topic] = rospy.Publisher(self.TOPIC_SEMANTIC+topic, Image, queue_size = 1)
                 self.image_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+topic, Image, queue_size = 1)
                 rospyLogInfoWrapper("Adding segmentation process for the topic: "+topic)
-        # self.test_pub = rospy.Publisher("Test", Image, queue_size = 1)
+
+        self.test_img_pub = rospy.Publisher("Test_img", Image, queue_size = 1)
+        self.test_mask_pub = rospy.Publisher("Test_mask", Image, queue_size = 1)
+        self.test_confidence_pub = rospy.Publisher("confidence", Image, queue_size = 1)
     
     def onImageCB(self, msg, args):
         topic = str(args)
@@ -158,12 +170,16 @@ class SegmentationWrapper:
                 result = np.array(result)
                 encode = "rgb8"
 
+
+
             #TODO
             # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
             semantic_msg = self.CV2ToImgmsg(result, encoding=encode)
 
+            #########################################################
             self.mask_publishers[topic].publish(semantic_msg)
             self.image_publishers[topic].publish(msg)
+            #########################################################
 
 
     def onImageSyncCB(self, rgb_msg, depth_msg, args):
@@ -175,11 +191,12 @@ class SegmentationWrapper:
         
         img = img.resize(self.resize_image_to, Img.BILINEAR)
         img_arr = np.array(img)
+
         self.topics_msgs[topic] = {"msg":rgb_msg, "size":size_, "img_arr": img_arr}
 
         tensor = self.input_transform(img_arr)
         tensor = torch.unsqueeze(tensor,0).to(self.device)
-        
+
         with torch.no_grad():
             # pass
             if self.MODEL_NAME == "TransLab":
@@ -207,6 +224,136 @@ class SegmentationWrapper:
             self.mask_publishers[topic].publish(semantic_msg)
             self.image_publishers[topic].publish(rgb_msg)
             self.depth_publishers[topic].publish(depth_msg)
+
+
+    def ImageDepthInfoSyncCB(self, rgb_msg, depth_msg, args):
+        topic = str(args)
+        rospyLogDebugWrapper("Recived new Image, topic: "+topic)
+        arr = self.imgmsgToCV2(rgb_msg)
+        img = Img.fromarray(arr)
+        size_ = img.size
+        
+        img = img.resize(self.resize_image_to, Img.BILINEAR)
+        img_arr = np.array(img)
+
+        self.topics_msgs[topic] = {"msg":rgb_msg, "size":size_, "img_arr": img_arr}
+
+        tensor = self.input_transform(img_arr)
+        tensor = torch.unsqueeze(tensor,0).to(self.device)
+
+        with torch.no_grad():
+            # pass
+            if self.MODEL_NAME == "TransLab":
+                output, output_boundary = self.model.evaluate(tensor)
+                result = output.argmax(1)[0].data.cpu().numpy().astype('uint8')*127
+                result = cv2.resize(result, size_, interpolation=cv2.INTER_NEAREST)
+                encode = "mono8"
+            elif self.MODEL_NAME == "Trans2Seg":
+                output = self.model(tensor)
+                mask = torch.argmax(output[0], 1)[0].cpu().data.numpy()
+                result = get_color_pallete(mask, cfg.DATASET.NAME)
+                result = result.convert("RGB")
+                result = result.resize(size_)
+                result = np.array(result)
+                encode = "rgb8"
+
+            #TODO
+            # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
+            semantic_msg = self.CV2ToImgmsg(result, encoding=encode)
+
+            stamp = rospy.Time.from_sec(time.time())
+            semantic_msg.header.stamp = stamp
+            rgb_msg.header.stamp = stamp
+            depth_msg.header.stamp = stamp
+            self.mask_publishers[topic].publish(semantic_msg)
+            self.image_publishers[topic].publish(rgb_msg)
+            self.depth_publishers[topic].publish(depth_msg)
+
+
+    def testCB(self, rgb_msg, depth_msg, args):
+        topic = str(args)
+        rospyLogDebugWrapper("Recived new Image, topic: "+topic)
+        arr = self.imgmsgToCV2(rgb_msg)
+        img = Img.fromarray(arr)
+        size_ = img.size
+        cropped = img.crop((0.25*size_[0], 0.35*size_[1], 0.75*size_[0], 0.95*size_[1]))
+        cropped_arr = np.array(cropped)
+        # rospyLogInfoWrapper(str(cropped_arr.shape))
+        cropped_msg = self.CV2ToImgmsg(cropped_arr, encoding="bgr8")
+        size_c = cropped.size
+        
+        img = img.resize(self.resize_image_to, Img.BILINEAR)
+        cropped = cropped.resize(self.resize_image_to, Img.BILINEAR)
+
+        img_arr = np.array(img)
+        cropped_arr = np.array(cropped)
+
+        self.topics_msgs[topic] = {"msg":rgb_msg, "size":size_, "img_arr": img_arr}
+
+        tensor = self.input_transform(img_arr)
+        tensor = torch.unsqueeze(tensor,0).to(self.device)
+
+        #########################################################
+        tensor_c = self.input_transform(cropped_arr)
+        tensor_c = torch.unsqueeze(tensor_c,0).to(self.device)
+
+        tensor = torch.cat((tensor, tensor_c))
+        #########################################################
+
+        with torch.no_grad():
+            # pass
+            if self.MODEL_NAME == "TransLab":
+                output, output_boundary = self.model.evaluate(tensor)
+                result = output.argmax(1)[0].data.cpu().numpy().astype('uint8')*127
+                result = cv2.resize(result, size_, interpolation=cv2.INTER_NEAREST)
+                encode = "mono8"
+            elif self.MODEL_NAME == "Trans2Seg":
+                output = self.model(tensor)
+                mask = torch.argmax(output[0], 1)[0].cpu().data.numpy()
+                result = get_color_pallete(mask, cfg.DATASET.NAME)
+                result = result.convert("RGB")
+                result = result.resize(size_)
+                result = np.array(result)
+                encode = "rgb8"
+
+                #########################################################
+                mask_c = torch.argmax(output[0], 1)[1].cpu().data.numpy()
+                result_c = get_color_pallete(mask_c, cfg.DATASET.NAME)
+                result_c = result_c.convert("RGB")
+                result_c = result_c.resize(size_c)
+                result_c = np.array(result_c)
+
+                output_norm = self.softmax_layer(output[0])
+                confidence = torch.max(output_norm, 1)[0].cpu().data.numpy()*255
+                rospyLogInfoWrapper("Max Confidence Val: "+str(np.max(confidence)))
+                rospyLogInfoWrapper("Min Confidence Val: "+str(np.min(confidence)))
+                confidence = np.array(confidence, dtype=np.int8)[0]
+
+                conf_img = Img.fromarray(confidence)
+                conf_img = conf_img.resize(size_, Img.BILINEAR)
+                confidence = np.array(conf_img, dtype=np.int8)
+
+            #TODO
+            # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
+            semantic_msg = self.CV2ToImgmsg(result, encoding=encode)
+
+            stamp = rospy.Time.from_sec(time.time())
+            semantic_msg.header.stamp = stamp
+            rgb_msg.header.stamp = stamp
+            depth_msg.header.stamp = stamp
+            self.mask_publishers[topic].publish(semantic_msg)
+            self.image_publishers[topic].publish(rgb_msg)
+            self.depth_publishers[topic].publish(depth_msg)
+
+            #########################################################
+            test_mask_msg = self.CV2ToImgmsg(result_c, encoding=encode)
+            test_conf_msg = self.CV2ToImgmsg(confidence, encoding="mono8")
+
+            self.test_img_pub.publish(cropped_msg)
+            self.test_mask_pub.publish(test_mask_msg)
+            self.test_confidence_pub.publish(test_conf_msg)
+
+
 
     def imgmsgToCV2(self, data, desired_encoding="passthrough", flip_channels=False):
         """
