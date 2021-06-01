@@ -30,6 +30,7 @@ source devel/setup.bash
 ## Pretrained Models:
 Before using the package it is necessary to download a pretrained model for the neural network you want to use (Different models for different neural network structures).  
 Multiple pretrained models can be found on [google drive](https://drive.google.com/drive/folders/1gHPFC8PWQWz_J8XjXGWbDqAZxDOiN9kR?usp=sharing)
+*Note: The code is configured for the model **Sber2400_50_All_classes***
 
 - Create a folder called **demo** inside the */src* folder
 - Download the model to the *demo* folder and rename the it to **trans2seg_model.pth**
