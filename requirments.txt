@@ -4,6 +4,7 @@ numpy
 torchvision
 IPython
 scipy
-cv2
+#cv2
+yaml
 thop
 tabulate

@@ -51,6 +51,9 @@ class SegmentationWrapper:
         self.TOPIC_ORIGINAL = rospy.get_param("~orig_topic","/orig_image")
         self.ROOT_DIR = rospy.get_param("~root_dir", os.path.abspath(os.curdir) + "/src/transformers_semantic_ros/src")
         self.USE_DEPTH = rospy.get_param("~use_depth",True)                          # To choose whether to synchronize depth with the mask
+        self.USE_CROP = rospy.get_param("~use_crop",True)                            # To choose whether to use cropped images too to generate the mask
+        self.RANDOM_CROP = rospy.get_param("~random_crop",False)                     # To choose whether to use random crop positions
+        self.CROP_EDGES = rospy.get_param("~crop_edges",[[0.25, 0.35, 0.75, 0.95]])    # The edges of the cropped image
 
         self.CKPT_PATH = rospy.get_param("~ckpt_path","/demo")
         # self.ROOT_DIR = os.path.abspath(os.curdir)
@@ -106,7 +109,8 @@ class SegmentationWrapper:
             transforms.Normalize(cfg.DATASET.MEAN, cfg.DATASET.STD),
         ])
         if self.MODEL_NAME== "TransLab" or self.MODEL_NAME=="Trans2Seg":				# If model is TransLab or Trans2Seg
-            self.model = get_segmentation_model().to(self.device)	
+            self.model = get_segmentation_model().to(self.device)
+            rospyLogInfoWrapper("Loaded the model!")
         else:
             #model = get_segmentation_model().to(device)
             pass
@@ -276,28 +280,47 @@ class SegmentationWrapper:
         arr = self.imgmsgToCV2(rgb_msg)
         img = Img.fromarray(arr)
         size_ = img.size
-        cropped = img.crop((0.25*size_[0], 0.35*size_[1], 0.75*size_[0], 0.95*size_[1]))
-        cropped_arr = np.array(cropped)
-        # rospyLogInfoWrapper(str(cropped_arr.shape))
-        cropped_msg = self.CV2ToImgmsg(cropped_arr, encoding="bgr8")
-        size_c = cropped.size
-        
+
+
+        cropped_arrs = []
+        cropped_msgs = []
+        cropped_sizes = []
+        cropped_edges = []
+        cropped_results = []
+        cropped_confidences = []
+        for crop in self.CROP_EDGES:
+            edges = (int(crop[0]*size_[0]), int(crop[1]*size_[1]), int(crop[2]*size_[0]), int(crop[3]*size_[1])) 
+            cropped_edges.append(edges)
+            cropped = img.crop(edges)
+            # cropped_images.append(cropped)
+            # cropped = img.crop((0.25*size_[0], 0.35*size_[1], 0.75*size_[0], 0.95*size_[1]))
+            cropped_arr = np.array(cropped)
+            # rospyLogInfoWrapper(str(cropped_arr.shape))
+
+            cropped_msg = self.CV2ToImgmsg(cropped_arr, encoding="bgr8")
+            cropped_msgs.append(cropped_msg)
+            size_c = cropped.size
+            cropped_sizes.append(size_c)
+
+            cropped = cropped.resize(self.resize_image_to, Img.BILINEAR)
+
+            cropped_arr = np.array(cropped)
+            cropped_arrs.append(cropped_arr)
+
+
         img = img.resize(self.resize_image_to, Img.BILINEAR)
-        cropped = cropped.resize(self.resize_image_to, Img.BILINEAR)
-
         img_arr = np.array(img)
-        cropped_arr = np.array(cropped)
-
         self.topics_msgs[topic] = {"msg":rgb_msg, "size":size_, "img_arr": img_arr}
 
         tensor = self.input_transform(img_arr)
         tensor = torch.unsqueeze(tensor,0).to(self.device)
 
         #########################################################
-        tensor_c = self.input_transform(cropped_arr)
-        tensor_c = torch.unsqueeze(tensor_c,0).to(self.device)
+        for cropped_arr in cropped_arrs:
+            tensor_c = self.input_transform(cropped_arr)
+            tensor_c = torch.unsqueeze(tensor_c,0).to(self.device)
 
-        tensor = torch.cat((tensor, tensor_c))
+            tensor = torch.cat((tensor, tensor_c))
         #########################################################
 
         with torch.no_grad():
@@ -316,22 +339,34 @@ class SegmentationWrapper:
                 result = np.array(result)
                 encode = "rgb8"
 
-                #########################################################
-                mask_c = torch.argmax(output[0], 1)[1].cpu().data.numpy()
-                result_c = get_color_pallete(mask_c, cfg.DATASET.NAME)
-                result_c = result_c.convert("RGB")
-                result_c = result_c.resize(size_c)
-                result_c = np.array(result_c)
-
                 output_norm = self.softmax_layer(output[0])
-                confidence = torch.max(output_norm, 1)[0].cpu().data.numpy()*255
-                rospyLogInfoWrapper("Max Confidence Val: "+str(np.max(confidence)))
-                rospyLogInfoWrapper("Min Confidence Val: "+str(np.min(confidence)))
-                confidence = np.array(confidence, dtype=np.int8)[0]
-
+                confidence_all = torch.max(output_norm, 1)[0].cpu().data.numpy()*255
+                confidence = np.array(confidence_all, dtype=np.int8)[0]
                 conf_img = Img.fromarray(confidence)
                 conf_img = conf_img.resize(size_, Img.BILINEAR)
                 confidence = np.array(conf_img, dtype=np.int8)
+
+                #########################################################
+                for i in range(len(cropped_arrs)):
+                    mask_c = torch.argmax(output[0], 1)[1+i].cpu().data.numpy()
+                    result_c = get_color_pallete(mask_c, cfg.DATASET.NAME)
+                    result_c = result_c.convert("RGB")
+                    result_c = result_c.resize(cropped_sizes[i])
+                    result_c = np.array(result_c)
+                    res = np.zeros_like(result)
+                    # rospyLogInfoWrapper("result_c 0: " + str(result_c.shape))
+                    # rospyLogInfoWrapper("cropped_sizes 0: " + str(cropped_sizes[i]))
+                    # rospyLogInfoWrapper("cropped_edges 0: " + str(cropped_edges[i]))
+
+                    res[cropped_edges[i][1]:cropped_edges[i][3], cropped_edges[i][0]:cropped_edges[i][2],:]=result_c
+                    cropped_results.append(res)
+
+                    cropped_confidence = np.array(confidence_all, dtype=np.int8)[i+1]
+                    conf_img = Img.fromarray(cropped_confidence)
+                    conf_img = conf_img.resize(size_, Img.BILINEAR)
+                    cropped_confidence = np.array(conf_img, dtype=np.int8)
+                    cropped_confidences.append(cropped_confidence)
+
 
             #TODO
             # Create a image msg for the masks and original image for each single topic images [N, 3 , W, H]
@@ -346,10 +381,10 @@ class SegmentationWrapper:
             self.depth_publishers[topic].publish(depth_msg)
 
             #########################################################
-            test_mask_msg = self.CV2ToImgmsg(result_c, encoding=encode)
-            test_conf_msg = self.CV2ToImgmsg(confidence, encoding="mono8")
+            test_mask_msg = self.CV2ToImgmsg(cropped_results[1], encoding=encode)
+            test_conf_msg = self.CV2ToImgmsg(cropped_confidences[1], encoding="mono8")
 
-            self.test_img_pub.publish(cropped_msg)
+            self.test_img_pub.publish(cropped_msgs[1])
             self.test_mask_pub.publish(test_mask_msg)
             self.test_confidence_pub.publish(test_conf_msg)
 

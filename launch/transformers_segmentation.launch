@@ -3,6 +3,8 @@
     <arg name="mask_topic"              default="/segmentation"/>
     <arg name="orig_topic"              default="/orig_image"/>
     <arg name="use_depth"               default="True"/>
+    <arg name="use_crop"                default="True"/>
+    <arg name="random_crop"             default="False"/>
 
     <!-- For Trans2Seg model (Transformers) -->
     <arg name="model_name"              default="Trans2Seg"/>
@@ -10,6 +12,7 @@
     <arg name="ckpt_path"               default="/demo"/>
     <arg name="config_path"             default="/configs/Trans2Seg/trans2seg_medium_all_sber.yaml"/>
     <arg name="list_of_classes"         default='["Mirror", "Glass", "Floor Under Obstacles", "Floor", "Other Reflective Surfaces"]'/>
+    <arg name="crop_edges"              default='[[0, 0, 1, 1], [0.25, 0.35, 0.75, 0.95]]'/>
     <!-- For TransLab -->
     <!-- <arg name="model_name"              default="TransLab"/>
     <arg name="ckpt_name"               default="translab_model.pth"/>
@@ -29,9 +32,12 @@
         <param name="ckpt_path"             value="$(arg ckpt_path)"/>
         <param name="config_path"           value="$(arg config_path)"/>
         <param name="use_depth"             value="$(arg use_depth)"/>
+        <param name="use_crop"              value="$(arg use_crop)"/>
+        <param name="random_crop"           value="$(arg random_crop)"/>
         <param name="root_dir"              value="$(arg root_dir)"/>
         <rosparam param="list_of_classes" subst_value="True">$(arg list_of_classes)</rosparam>
         <rosparam param="image_topics" subst_value="True">$(arg image_topics)</rosparam>
         <rosparam param="depth_topics" subst_value="True">$(arg depth_topics)</rosparam>
+        <rosparam param="crop_edges" subst_value="True">$(arg crop_edges)</rosparam>
     </node>
 </launch>

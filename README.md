@@ -31,6 +31,7 @@ source devel/setup.bash
 Before using the package it is necessary to download a pretrained model for the neural network you want to use (Different models for different neural network structures).  
 Multiple pretrained models can be found on [google drive](https://drive.google.com/drive/folders/1gHPFC8PWQWz_J8XjXGWbDqAZxDOiN9kR?usp=sharing)
 
+- Create a folder called **demo** inside the */src* folder
 - Download the model to the *demo* folder and rename the it to **trans2seg_model.pth**
 - **Note:** the name of the model can be change in the launch file but by default the used name is **trans2seg_model.pth**
  
