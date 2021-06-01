@@ -9,3 +9,4 @@ yaml
 thop
 tabulate
 rospkg
+pyyaml
