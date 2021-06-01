@@ -8,3 +8,4 @@ scipy
 yaml
 thop
 tabulate
+rospkg
