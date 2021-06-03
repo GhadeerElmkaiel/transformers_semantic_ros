@@ -5,7 +5,6 @@ torchvision
 IPython
 scipy
 #cv2
-yaml
 thop
 tabulate
 rospkg
