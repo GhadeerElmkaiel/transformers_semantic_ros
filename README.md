@@ -11,7 +11,7 @@ git clone https://github.com/GhadeerElmkaiel/transformers_semantic_ros.git
 - Install requirements
 ```bash
 cd transformers_segmentation_ros/
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
   
 - Setup the translab code
