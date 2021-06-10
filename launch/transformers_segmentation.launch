@@ -20,8 +20,11 @@
     <arg name="list_of_classes"         default="[All_Optical, Floor]"/> -->
     <!--______________-->
 
-    <arg name="image_topics"            default="[/camera_h/color/image_raw]"/>
-    <arg name="depth_topics"            default="[/camera_h/aligned_depth_to_color/image_raw]"/> 
+    <arg name="image_topics"            default="[/camera_gl_rs/color/image_raw]"/>
+    <arg name="depth_topics"            default="[/camera_gl_rs/aligned_depth_to_color/image_raw]"/> 
+
+    <!-- <arg name="image_topics"            default="[/camera_gl_zed/zed_node/rgb/image_rect_color]"/>
+    <arg name="depth_topics"            default="[/camera_gl_zed/zed_node/depth/depth_registered]"/>  -->
     <arg name="root_dir"                default="$(dirname)/../src"/>
     
     <node pkg="transformers_semantic_ros" type="transformers_semantic_node" name="transformers_semantic_node" output="screen" clear_params="true">
