@@ -213,6 +213,7 @@ class SegmentationWrapper:
                 result = get_color_pallete(mask, cfg.DATASET.NAME)
                 result = result.convert("RGB")
                 result = result.resize(size_)
+                # result = result.resize(size_, Img.NEAREST)
                 result = np.array(result)
                 encode = "rgb8"
 
