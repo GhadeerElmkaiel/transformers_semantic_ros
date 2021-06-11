@@ -139,9 +139,9 @@ class SegmentationWrapper:
                 self.image_publishers[topic] = rospy.Publisher(self.TOPIC_ORIGINAL+topic, Image, queue_size = 1)
                 rospyLogInfoWrapper("Adding segmentation process for the topic: "+topic)
 
-        self.test_img_pub = rospy.Publisher("Test_img", Image, queue_size = 1)
-        self.test_mask_pub = rospy.Publisher("Test_mask", Image, queue_size = 1)
-        self.test_confidence_pub = rospy.Publisher("confidence", Image, queue_size = 1)
+        # self.test_img_pub = rospy.Publisher("Test_img", Image, queue_size = 1)
+        # self.test_mask_pub = rospy.Publisher("Test_mask", Image, queue_size = 1)
+        # self.test_confidence_pub = rospy.Publisher("confidence", Image, queue_size = 1)
     
     def onImageCB(self, msg, args):
         topic = str(args)
