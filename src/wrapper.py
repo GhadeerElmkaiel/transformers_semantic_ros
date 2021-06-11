@@ -212,8 +212,8 @@ class SegmentationWrapper:
                 mask = torch.argmax(output[0], 1)[0].cpu().data.numpy()
                 result = get_color_pallete(mask, cfg.DATASET.NAME)
                 result = result.convert("RGB")
-                result = result.resize(size_)
-                # result = result.resize(size_, Img.NEAREST)
+                # result = result.resize(size_)
+                result = result.resize(size_, Img.NEAREST)
                 result = np.array(result)
                 encode = "rgb8"
 
