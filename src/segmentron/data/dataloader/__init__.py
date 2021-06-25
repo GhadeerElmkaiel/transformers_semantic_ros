@@ -13,6 +13,8 @@ from .trans10k_boundary import TransSegmentationBoundary
 from .sber_dataset import SberSegmentation
 from .sber_dataset_all_classes import SberSegmentationAll
 from .sber_dataset_all_no_fu_classes import SberSegmentationAllNoFU
+from .sber_merged_dataset_all_classes import  SberMergedSegmentationAll
+# sber_merged_dataset_all_classes
 
 datasets = {
     'ade20k': ADE20KSegmentation,
@@ -27,6 +29,7 @@ datasets = {
     'sber_dataset': SberSegmentation,
     'sber_dataset_all': SberSegmentationAll,
     'sber_dataset_all_no_fu': SberSegmentationAllNoFU,
+    'sber_merged_dataset_all': SberMergedSegmentationAll,
 }
 
 
