@@ -6,14 +6,14 @@
     <arg name="use_crop"                default="True"/>
     <arg name="random_crop"             default="True"/>
     <!-- <arg name="crop_edges"              default='[[0.25, 0.35, 0.75, 0.95], [0.1, 0.45, 0.9, 0.9]]'/> -->
-    <!-- No cropping -->
-    <!-- <arg name="crop_edges"              default='[[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]]'/>                    -->
     <arg name="crop_edges"              default='[[0.0, 0.1, 0.5, 1.0], [0.5, 0.1, 1.0, 1.0]]'/>
-    <!-- <arg name="crop_edges"              default='[[0.25, 0.35, 0.75, 0.95]]'/> -->
+    <!-- To use the flip of the image to create the mask -->
     <arg name="use_flip"                default="True"/>
+    <!-- Use dynamic (not implemented yet) is used to change the cropping dynamicly using the previous mask "" -->
     <arg name="use_dynamic"             default="True"/>
+    <!-- The function to use to merge the masks possible functions("And", "Or", "Confidence") -->
     <arg name="merge_crops_func"        default="And"/>
-    <arg name="allowed_to_merge"        default="[0, 1, 3]"/>
+    <!-- The number of the crops to use when using random cropping set to 0 if just flipping is needed -->
     <arg name="num_of_crops"            default="0"/>
 
     <!-- For Trans2Seg model (Transformers) -->
@@ -55,6 +55,5 @@
         <rosparam param="image_topics" subst_value="True">$(arg image_topics)</rosparam>
         <rosparam param="depth_topics" subst_value="True">$(arg depth_topics)</rosparam>
         <rosparam param="crop_edges" subst_value="True">$(arg crop_edges)</rosparam>
-        <rosparam param="allowed_to_merge" subst_value="True">$(arg allowed_to_merge)</rosparam>
     </node>
 </launch>

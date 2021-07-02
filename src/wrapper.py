@@ -58,7 +58,6 @@ class SegmentationWrapper:
         self.USE_FLIP = rospy.get_param("~use_flip",True)                               # To choose whether to use the flipped image
         self.USE_DYNAMIC = rospy.get_param("~use_dynamic",True)                         # To choose whether to use the dynamic cropping using the previouse mask
         self.USE_MERGE_FUNCTION = rospy.get_param("~merge_crops_func","And")            # The function responsible for merging different crops 
-        self.ALLOWED_TO_MERGE = rospy.get_param("~allowed_to_merge",[0, 1, 3])          # The edges of the cropped image
         self.NUMBER_OF_CROPS = rospy.get_param("~num_of_crops",2)                      # The number of image's crops to use when using random cropping
 
 
