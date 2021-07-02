@@ -4,7 +4,17 @@
     <arg name="orig_topic"              default="/orig_image"/>
     <arg name="use_depth"               default="True"/>
     <arg name="use_crop"                default="True"/>
-    <arg name="random_crop"             default="False"/>
+    <arg name="random_crop"             default="True"/>
+    <!-- <arg name="crop_edges"              default='[[0.25, 0.35, 0.75, 0.95], [0.1, 0.45, 0.9, 0.9]]'/> -->
+    <!-- No cropping -->
+    <!-- <arg name="crop_edges"              default='[[0.0, 0.0, 1.0, 1.0], [0.0, 0.0, 1.0, 1.0]]'/>                    -->
+    <arg name="crop_edges"              default='[[0.0, 0.1, 0.5, 1.0], [0.5, 0.1, 1.0, 1.0]]'/>
+    <!-- <arg name="crop_edges"              default='[[0.25, 0.35, 0.75, 0.95]]'/> -->
+    <arg name="use_flip"                default="True"/>
+    <arg name="use_dynamic"             default="True"/>
+    <arg name="merge_crops_func"        default="And"/>
+    <arg name="allowed_to_merge"        default="[0, 1, 3]"/>
+    <arg name="num_of_crops"            default="0"/>
 
     <!-- For Trans2Seg model (Transformers) -->
     <arg name="model_name"              default="Trans2Seg"/>
@@ -12,7 +22,6 @@
     <arg name="ckpt_path"               default="/demo"/>
     <arg name="config_path"             default="/configs/Trans2Seg/trans2seg_medium_all_sber.yaml"/>
     <arg name="list_of_classes"         default='["Mirror", "Glass", "Floor Under Obstacles", "Floor", "Other Reflective Surfaces"]'/>
-    <arg name="crop_edges"              default='[[0, 0, 1, 1], [0.25, 0.35, 0.75, 0.95]]'/>
     <!-- For TransLab -->
     <!-- <arg name="model_name"              default="TransLab"/>
     <arg name="ckpt_name"               default="translab_model.pth"/>
@@ -37,10 +46,15 @@
         <param name="use_depth"             value="$(arg use_depth)"/>
         <param name="use_crop"              value="$(arg use_crop)"/>
         <param name="random_crop"           value="$(arg random_crop)"/>
+        <param name="use_flip"              value="$(arg use_flip)"/>
+        <param name="use_dynamic"           value="$(arg use_dynamic)"/>
+        <param name="merge_crops_func"      value="$(arg merge_crops_func)"/>
+        <param name="num_of_crops"          value="$(arg num_of_crops)"/>
         <param name="root_dir"              value="$(arg root_dir)"/>
         <rosparam param="list_of_classes" subst_value="True">$(arg list_of_classes)</rosparam>
         <rosparam param="image_topics" subst_value="True">$(arg image_topics)</rosparam>
         <rosparam param="depth_topics" subst_value="True">$(arg depth_topics)</rosparam>
         <rosparam param="crop_edges" subst_value="True">$(arg crop_edges)</rosparam>
+        <rosparam param="allowed_to_merge" subst_value="True">$(arg allowed_to_merge)</rosparam>
     </node>
 </launch>
