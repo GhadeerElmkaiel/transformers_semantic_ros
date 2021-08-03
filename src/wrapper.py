@@ -119,7 +119,9 @@ class SegmentationWrapper:
             self.model = get_segmentation_model().to(self.device)
             rospyLogInfoWrapper("Loaded the model!")
         else:
-            #model = get_segmentation_model().to(device)
+            # here add new model
+            # replace "else" by "elif self.MODEL_NAME== new_model_name"
+            # then add the code for loading the model 
             pass
         self.model.to(self.device)
         self.model.eval()
@@ -224,24 +226,10 @@ class SegmentationWrapper:
                 output = self.model(tensor)
                 mask = torch.argmax(output[0], 1)[0].cpu().data.numpy()
              
-                # rospyLogInfoWrapper("Before palette shape "+ str(mask.shape))
-                # rospyLogInfoWrapper("Before palette mask "+ str(mask.dtype))
-                # rospyLogInfoWrapper("Before palette size "+ str(mask.size))
-                # rospyLogInfoWrapper("Before palette nbytes "+ str(mask.nbytes))
-                # rospyLogInfoWrapper("Before palette ndim "+ str(mask.ndim))
-                # rospyLogInfoWrapper("Before palette flags "+ str(mask.flags))
                 result = get_color_pallete(mask, cfg.DATASET.NAME)
-
-                # rospyLogInfoWrapper("After palette shape "+ str(result.size))
-
                 result = result.convert("RGB")
-                # result = result.resize(size_)
                 result = result.resize(size_, Img.NEAREST)
                 result = np.array(result)
-
-                # rospyLogInfoWrapper("After RGB shape "+ str(result.shape))
-                # rospyLogInfoWrapper("After RGB mask "+ str(result[0]))
-
                 encode = "rgb8"
 
             #TODO
@@ -283,7 +271,7 @@ class SegmentationWrapper:
 
 
         cropped_arrs = [orig_img_arr]
-        cropped_msgs = []
+        # cropped_msgs = []
         cropped_sizes = [size_]
         cropped_edges = [[0, 0, size_[0], size_[1]]]
         cropped_results = []
@@ -304,8 +292,8 @@ class SegmentationWrapper:
             cropped_arr = np.array(cropped)
 
             rospyLogInfoWrapper("CROP_EDGES shape: "+ str(self.CROP_EDGES))
-            cropped_msg = self.CV2ToImgmsg(cropped_arr, encoding="bgr8")
-            cropped_msgs.append(cropped_msg)
+            # cropped_msg = self.CV2ToImgmsg(cropped_arr, encoding="bgr8")
+            # cropped_msgs.append(cropped_msg)
             size_c = cropped.size
             cropped_sizes.append(size_c)
 
@@ -341,11 +329,10 @@ class SegmentationWrapper:
                 mask = torch.argmax(output[0], 1)[0].cpu().data.numpy()
                 result = get_color_pallete(mask, cfg.DATASET.NAME)
 
-                # result = result.convert("RGB")
-                # result = Img.fromarray(result)
                 result = result.resize(size_, Img.NEAREST)
                 result = np.array(result)
                 encode = "rgb8"
+                # encode = "bgr8"
 
                 output_norm = self.softmax_layer(output[0])
                 confidence_all = torch.max(output_norm, 1)[0].cpu().data.numpy()*255
